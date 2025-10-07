@@ -30,8 +30,8 @@ class RobotContainerTest {
     @AfterEach
     void teardown() {
         // Clean up after each test
-        if (robotContainer != null && robotContainer.drivetrain != null) {
-            robotContainer.drivetrain.close();
+        if (robotContainer != null && robotContainer.getDrivetrain() != null) {
+            robotContainer.getDrivetrain().close();
         }
         CommandScheduler.getInstance().cancelAll();
         CommandScheduler.getInstance().clearComposedCommands();
@@ -39,8 +39,8 @@ class RobotContainerTest {
 
     @Test
     void testRobotInitializesAndRuns() {
-        assertNotNull(robotContainer.drivetrain);
-        assertNotNull(robotContainer.drivetrain.getDefaultCommand());
+        assertNotNull(robotContainer.getDrivetrain());
+        assertNotNull(robotContainer.getDrivetrain().getDefaultCommand());
 
         assertDoesNotThrow(() -> {
             for (int i = 0; i < 10; i++) {

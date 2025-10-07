@@ -17,34 +17,38 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.VisionSubsystem;
+import frc.robot.commands.DriveToTag;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.Constants.VisionConstants;
 
 /**
  * Central configuration for robot subsystems and operator controls.
  * Instantiates subsystems, configures button bindings, and provides autonomous commands.
  */
 public class RobotContainer {
-    private final double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
-    private final double MaxAngularRate = RotationsPerSecond.of(DriveConstants.MAX_ANGULAR_RATE).in(RadiansPerSecond);
+    private final double maxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+    private final double maxAngularRate = RotationsPerSecond.of(DriveConstants.MAX_ANGULAR_RATE).in(RadiansPerSecond);
 
     /* Setting up bindings for necessary control of the swerve drive platform */
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
-            .withDeadband(MaxSpeed * DriveConstants.DEADBAND_PERCENT)
-            .withRotationalDeadband(MaxAngularRate * DriveConstants.DEADBAND_PERCENT)
+            .withDeadband(maxSpeed * DriveConstants.DEADBAND_PERCENT)
+            .withRotationalDeadband(maxAngularRate * DriveConstants.DEADBAND_PERCENT)
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
-    private final Telemetry logger = new Telemetry(MaxSpeed);
+    private final Telemetry logger = new Telemetry(maxSpeed);
 
     private final CommandXboxController joystick = new CommandXboxController(OperatorConstants.DRIVER_CONTROLLER_PORT);
 
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    private final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    private final VisionSubsystem vision = new VisionSubsystem(VisionConstants.CAMERA_NAME);
 
-    private final SlewRateLimiter m_xspeedLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
-    private final SlewRateLimiter m_yspeedLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
-    private final SlewRateLimiter m_rotLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
+    private final SlewRateLimiter xSpeedLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
+    private final SlewRateLimiter ySpeedLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
+    private final SlewRateLimiter rotLimiter = new SlewRateLimiter(DriveConstants.SLEW_RATE_LIMIT);
 
     /**
      * Initializes subsystems and configures button bindings.
@@ -62,6 +66,7 @@ public class RobotContainer {
      *
      * Button mappings:
      * - X: Brake mode (X-formation)
+     * - A: Drive to nearest AprilTag (aligns and reaches target distance)
      * - Right bumper: Point wheels toward left stick direction
      * - Left bumper: Reset field-centric heading
      * - Back+Y/X: SysId dynamic characterization
@@ -74,13 +79,13 @@ public class RobotContainer {
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
                 drive.withVelocityX(
-                    MaxSpeed * m_xspeedLimiter.calculate(-joystick.getLeftY())
+                    maxSpeed * xSpeedLimiter.calculate(-joystick.getLeftY())
                     ) // Drive forward with negative Y (forward)
                     .withVelocityY(
-                        MaxSpeed * m_yspeedLimiter.calculate(-joystick.getLeftX())
+                        maxSpeed * ySpeedLimiter.calculate(-joystick.getLeftX())
                     ) // Drive left with negative X (left)
                     .withRotationalRate(
-                        MaxAngularRate * m_rotLimiter.calculate(-joystick.getRightX())
+                        maxAngularRate * rotLimiter.calculate(-joystick.getRightX())
                     ) // Drive counterclockwise with negative X (left)
             )
         );
@@ -94,6 +99,9 @@ public class RobotContainer {
 
         // X button: brake mode
         joystick.x().whileTrue(drivetrain.applyRequest(() -> brake));
+
+        // A button: Drive to AprilTag
+        joystick.a().whileTrue(new DriveToTag(vision, drivetrain));
 
         // Right bumper: point wheels
         joystick.rightBumper().whileTrue(drivetrain.applyRequest(() ->
@@ -111,6 +119,23 @@ public class RobotContainer {
         joystick.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
         drivetrain.registerTelemetry(logger::telemeterize);
+    }
+
+    /**
+     * Gets the drivetrain subsystem.
+     * @return The CommandSwerveDrivetrain instance
+     */
+    public CommandSwerveDrivetrain getDrivetrain() {
+        return drivetrain;
+    }
+
+    /**
+     * Gets the vision subsystem.
+     * Package-private for testing purposes.
+     * @return The VisionSubsystem instance
+     */
+    VisionSubsystem getVision() {
+        return vision;
     }
 
 }

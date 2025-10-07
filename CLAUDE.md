@@ -10,7 +10,8 @@ This is an FRC (FIRST Robotics Competition) 2025 Java robot project using WPILib
 
 Required vendordeps (located in `vendordeps/`):
 - **Phoenix6-frc2025-latest.json** - CTRE Phoenix 6 library for TalonFX motors, CANcoders, and Pigeon 2
-- **AdvantageKit.json** - AdvantageKit for advanced telemetry and logging
+- **photonlib.json** - PhotonVision library for AprilTag detection and vision processing
+- **AdvantageKit.json** - AdvantageKit for advanced telemetry and logging (installed but not actively used)
 - **WPILibNewCommands.json** - WPILib command-based framework
 
 ## Essential Commands
@@ -23,7 +24,12 @@ Required vendordeps (located in `vendordeps/`):
 ### Testing
 - `./gradlew test` - Run JUnit 5 tests
   - Tests located in `src/test/java/frc/robot/`
-  - Current coverage: RobotContainer initialization and Telemetry publishing
+  - Test coverage: 22 tests across 5 test files
+    - RobotContainerTest (robot initialization)
+    - TelemetryTest (telemetry publishing)
+    - VisionSubsystemTest (vision subsystem functionality)
+    - DriveToTagTest (vision-guided driving command)
+    - VisionGuidedDrivingTest (integration tests)
 
 ### Simulation
 - `./gradlew simulateJava` - Run robot code in simulation with GUI enabled by default
@@ -40,11 +46,15 @@ Required vendordeps (located in `vendordeps/`):
 
 The project follows WPILib's command-based paradigm:
 
-- **Robot.java** - Extends `TimedRobot`, manages mode transitions and periodic execution
+- **Robot.java** - Extends `TimedRobot`, runs command scheduler in `robotPeriodic()`
 - **RobotContainer.java** - Central configuration hub: instantiates subsystems, binds controller inputs to commands
+  - Subsystems accessed via getter methods (`getDrivetrain()`, `getVision()`)
   - Note: `getAutonomousCommand()` method removed - autonomous setup should be added here when needed
-- **Subsystems** - Located in `frc.robot.subsystems/`, each encapsulates hardware and provides command factories
-- **Commands** - Defined inline in `RobotContainer` using the Commands API and method references
+- **Subsystems** - Located in `frc.robot.subsystems/`:
+  - `CommandSwerveDrivetrain` - Swerve drivetrain with field-centric control
+  - `VisionSubsystem` - PhotonVision integration for AprilTag detection
+- **Commands** - Located in `frc.robot.commands/`:
+  - `DriveToTag` - Vision-guided alignment and approach to AprilTags
 
 ### Swerve Drive Implementation
 
@@ -67,7 +77,8 @@ Hardware configuration:
 Default driver controls configured in `RobotContainer.configureBindings()`:
 - Left stick: Translation (X/Y movement) with slew rate limiting (3 units/sec)
 - Right stick X: Rotation with slew rate limiting
-- X button: Brake mode (point wheels in X formation)
+- **A button**: Drive to nearest AprilTag (vision-guided alignment and approach)
+- **X button**: Brake mode (point wheels in X formation)
 - Right bumper: Point wheels toward stick direction
 - Left bumper: Reset field-centric heading
 - Back+Y/X: SysId dynamic characterization
@@ -75,12 +86,29 @@ Default driver controls configured in `RobotContainer.configureBindings()`:
 
 ### Constants Organization
 
-- **Constants.java** - Application constants (currently only controller port)
+- **Constants.java** - Application constants organized by subsystem:
+  - `OperatorConstants` - Controller port configuration
+  - `DriveConstants` - Max speeds, slew rates, deadbands
+  - `VisionConstants` - Camera name, PID gains, alignment tolerances
 - **TunerConstants.java** - Hardware-specific swerve configuration (DO NOT manually edit - use Tuner X)
 
 ### Vision Integration
 
-`CommandSwerveDrivetrain` provides `addVisionMeasurement()` methods for fusing vision pose estimates with odometry using a Kalman filter.
+The project includes PhotonVision integration for AprilTag detection:
+
+- **VisionSubsystem** - Manages PhotonCamera and target detection
+  - Connection monitoring with automatic disconnect detection
+  - SmartDashboard telemetry (connected status, target ID, yaw, area)
+  - Optional-based API for null safety
+  - Error handling with try-catch and DriverStation error reporting
+- **DriveToTag Command** - Vision-guided alignment and approach
+  - P-controller for rotation (yaw alignment)
+  - P-controller for forward drive (distance control via target area)
+  - Minimum speed enforcement to overcome friction
+  - Sequential behavior: rotate first, then drive forward
+  - All constants configurable in `VisionConstants`
+
+Note: `CommandSwerveDrivetrain` provides `addVisionMeasurement()` methods for pose fusion, but this is not currently implemented.
 
 ## Important Development Notes
 
@@ -122,8 +150,26 @@ AdvantageKit is installed as a vendordep but currently not actively used (Robot 
 
 ### Testing Strategy
 
-The project includes minimal unit tests to verify core functionality:
+The project includes comprehensive unit and integration tests (22 tests total):
+
+**Unit Tests:**
 - **RobotContainerTest** - Validates robot initialization, drivetrain setup, and command scheduler execution
 - **TelemetryTest** - Verifies telemetry can publish swerve drive state without errors
+- **VisionSubsystemTest** - Tests camera initialization, target detection, connection tracking, error handling
+- **DriveToTagTest** - Tests command lifecycle, requirements, scheduling, cancellation
 
-Tests use HAL simulation and run automatically with `./gradlew test` or `./gradlew build`.
+**Integration Tests:**
+- **VisionGuidedDrivingTest** - Tests full system interaction: vision + drivetrain + commands + scheduler
+
+All tests use HAL simulation and run automatically with `./gradlew test` or `./gradlew build`.
+
+### Code Quality
+
+The codebase follows these best practices:
+- **Encapsulation**: All fields private, accessed via getters
+- **Naming conventions**: Consistent camelCase throughout
+- **No magic numbers**: All constants extracted to `Constants.java`
+- **Error handling**: Try-catch blocks with DriverStation error reporting
+- **Null safety**: Optional-based APIs instead of nullable returns
+- **Performance**: Direct `setControl()` calls instead of lambda creation overhead
+- **Documentation**: Comprehensive JavaDoc on all public methods
