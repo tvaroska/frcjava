@@ -7,6 +7,22 @@ package frc.robot;
 public class Constants {
 
     /**
+     * Robot variant identification.
+     */
+    public static final class RobotIdentity {
+        /**
+         * MAC addresses for robot auto-detection.
+         * Replace these with your actual robot MAC addresses.
+         * To find MAC address: run `ip link` on RoboRIO or check admin panel.
+         */
+        public static final String ROBOT_A_MAC = "00:80:2F:17:D7:E1";  // Practice robot
+        public static final String ROBOT_B_MAC = "00:80:2F:17:D7:E2";  // Competition robot
+
+        /** Default robot when MAC address is unknown (for simulation/development) */
+        public static final String DEFAULT_ROBOT = "RobotA";
+    }
+
+    /**
      * Operator interface configuration.
      */
     public static final class OperatorConstants {
